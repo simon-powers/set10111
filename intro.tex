@@ -1,0 +1,1342 @@
+\chapter{Introduction to Agent-Oriented Programming with JADE}
+
+This textbook is designed to supplement the practical and online resources for SET10111 Multi-Agent Systems. The goal of the practical part of the module is to give you a strong underpinning in the agent-oriented programming paradigm. Although there are many agent-oriented programming languages, we will be using JADE (the Java Agent DEvelopment framework, \url{http://jade.tilab.com/}). This is free open source software developed by Telecom Italia, and is widely used to develop multi-agent systems.  JADE acts as middleware to add agent functionality on top of Java, and is accessed by means of a Java API. This means that you can leverage the programming skills that you have already learnt in Java or C\# and take them forward to the world of agents.
+
+\section{What is agent-oriented programming?}
+In the lectures we introduced the idea of an intelligent \emph{agent}. An intelligent acts autonomously (i.e. without continual direction from its owner) to achieve the goals set by its owner. This is challenging because the environment that it acts in may change (e.g. new obstacles may appear in the path of a robot), and the agent may have to interact with other agents that represent the interests of other users. Moreover, the interests of the users may not be the same (and may even be opposing). Consider, for example, a software agent that attempts to create a package holiday for its owner at the best possible price, while satisfying its owner's preferences for a beach holiday on a tropical island with easy access to discos.  This agent will need to be able to negotiate with other agents representing the interests of airlines, hotels, beach resorts etc, who will be trying to maximise the amount of money they receive for their owners. Our agent therefore needs to be able to:
+\begin{itemize}
+\item find the IP addresses of agents representing hotels, airlines...;
+\item send messages to other agents, e.g. to enquire the price of something;
+\item have a shared understanding with the other agents of what concepts like a hotel room and a flight are (i.e. the agents need to speak the same language);
+\item react to offers received (e.g. decide whether to accept a flight to Ibiza for �200 at 6am on Monday morning or not). 
+\end{itemize}
+
+We are going to develop the skills to do all of these things in this textbook. We will start with agents that have very simple goals, e.g. print a hello world message every 10 seconds, and move on to agents that need to ask for the help of other agents to achieve their goals, and finally to agents that can fully communicate with each other using a common language (ontology).
+
+\subsection{Message passing between agents}
+Note that we just mentioned agents \emph{asking for the help of other agents}. This is not a polite choice of words but is actually fundamental to the agent-oriented programming paradigm. You will all be familiar with object-oriented programming. In object-oriented programming, one object simply uses another object by calling one of its public methods. The other object has no say in the matter -- if one of its public methods is called, it has to execute the code within that method. But this is not appropriate at all when considering the scenario above -- our agent should not be able to force a hotel agent to sell us a room at any price we like simply by calling its sell method!!! In general, one agent cannot force another agent to do something, as that other agent may have different goals (and a different owner). An agent has control over both its internal state (as in object-oriented programming) and over its actions (unlike object-oriented programming).
+
+What does all this mean? \textbf{It means that one agent does not call a method on another agent}. Instead, Agent x sends a message to Agent y, and Agent y then chooses how to handle this message. Much of agent-oriented programming therefore consists of writing code -- \emph{behaviours} -- to send outgoing messages and react to incoming messages. \textbf{As a general rule, agents should never call methods on each other}. Although agents are represented as objects in JADE, one agent should \textbf{not} have a reference variable pointing to the object behind another agent. Instead, the agent should only know the Agent Identifiers (AIDs) of the other agents in the system, and should interact with other agents by sending messages addressed to these AIDs. An agent should only call methods on itself or on other non-agent Java classes (e.g. from the standard Java API).
+
+\subsection{Agent behaviours}
+An agent in JADE consists of a number of concurrently executing \emph{behaviours}. For example, an agent representing a hotel might have one behaviour listening for messages containing queries about the price of rooms, and another behaviour listening for messages making reservations. In general, if you want your agent to do something, the code for that has to be placed inside a behaviour. Behaviours are implemented as subclasses of the JADE API class \texttt{Behaviour}.
+
+\section{Getting started with JADE}
+Ok, it's time to have a go at creating our first agents! In our examples, we will be working with the Eclipse IDE. However, this is not prescriptive and you may use any IDE that you prefer. To get going with JADE in Eclipse, follow these steps:
+
+\begin{itemize}
+\item	Download the latest version of JADE from \url{http://jade.tilab.com/download/jade/license/jade-download/?x=62&y=13}. Download JadeAll and unzip it in a suitable folder, then unzip the 4 zip archives within it .  You may wish to download these files to a location such as your h:\  drive so they are available for future use.
+\item	Start Eclipse (in the JKCC use Eclipse Kelper which may be found in ZenWorks under School Of Computing.
+\item	Create a new workspace and a new project.
+\item	To allow your project work with Eclipse go into project properties, then select Java Build Path, then add jade.jar (it's in the jade-bin directory) as an external JAR.
+\end{itemize}
+ 
+The simplest JADE agent that we can create looks like this:
+
+\begin{lstlisting}[caption=The world's simplest agent]
+import jade.core.Agent;
+public class SimpleAgent extends Agent {
+
+  //This method is called when the agent is launched
+  protected void setup() {
+    // Print out a welcome message
+    System.out.println("Hello! Agent "+getAID().getName()+" is ready.");
+  }
+}
+
+\end{lstlisting}
+All agents are implemented as subclasses of the \texttt{Agent} superclass. The \texttt{setup()} method runs when the agent is created (you can think of it as like a constructor in object-oriented programming). At the moment all this agent will do is run the code in its setup method, which prints out a hello message. It doesn't have any behaviours yet, so can't do anything interesting.
+
+Note that we can get the agent's unique identifier, its AID, by calling its \texttt{getAID()} method. Every agent has a unique AID. We're going to see how to run our agent and set its AID now.
+
+\subsection{Launching agents}
+
+To launch an agent, we first need start up the JADE platform, which will create a container  for our use and create an RMA agent which  allows our container to be administered via the GUI.
+
+The JADE platform is configured and started from the \texttt{main} method of your Java application as follows:
+
+\begin{lstlisting}[caption=Starting the JADE platform from with the \texttt{main} method]
+Profile myProfile = new ProfileImpl();
+Runtime myRuntime = Runtime.instance();
+ContainerController myContainer = myRuntime.createMainContainer(myProfile);
+AgentController rma = myContainer.createNewAgent("rma", "jade.tools.rma.rma", null);
+rma.start();
+\end{lstlisting}
+
+The above code will lunch JADE from within a Java program and create a container (accessed via the object \texttt{myContainer}). The last two lines show how we launch an agent, in this case, the Remote Monitoring Agent that provides a GUI showing all agents in the system.
+Note the name of the agent is ``rm'' and the actual class containing the agent is called \texttt{jade.tools.rma.rma} .  The \texttt{AgentController} object represents the agent and the \texttt{start()} method launches our new agent. Our \texttt{SimpleAgent} would similarly be launched with the lines:
+
+\begin{lstlisting}[caption=Launching our \texttt{SimpleAgent} from the application's \texttt{main} method]
+AgentController myAgent = myContainer.createNewAgent("Neil", SimpleAgent.class.getCanonicalName() , null);
+myAgent.start();
+\end{lstlisting}
+
+Here we are telling JADE to make a new agent according to the definition in the \texttt{SimpleAgent} class, and to give the agent the local name Neil. This local name forms the first part of the agent's AID (the second part is the IP address of the machine on which the JADE container is running), and will be returned by calling \texttt{getAID().getLocalName()} on the agent. It's therefore wise to give your agent's meaningful names when you create them!
+
+
+
+Welcome to the practical part of the Programming Fundamentals module.  This module is designed to give you a strong underpinning in programming, looking at low level concerns such as how code is run on the machine to high level concerns such as an introduction to object-orientation.  The goal of the module is enhance your programming skills.  As such, you should work through all the examples and exercises that you can.  Some of the work is for the really keen members of the class, but with perseverance everyone should be able to work through all the module content.
+
+\section{Getting Setup}
+
+This module takes a bottom up approach to the teaching of programming.  As such, you will initially work using a text editor and compiling from the command line to understand the basic compilation process.  Half way through the module we will shift into Microsoft Visual Studio to do our work.
+
+The toolchain we are going to use is Microsoft's set of C/C++ compilers, linkers and assemblers.  This is because we are using Visual Studio later in the module.  However, you could use other C/C++ compilers such as \texttt{gcc} and \texttt{clang} if you are a Linux or Mac OS X user.  The code we are using in the first part of the module is standard C/C++.  In fact throughout the module we will almost always use standard C/C++.  It is only when looking at application debugging do we really use Microsoft specific technology.
+
+\subsection{Downloading Notepad++}
+
+The text editor we recommend for the module is Notepad++ \\ (\url{http://notepad-plus-plus.org/}).  Notepad++ is free, provides code highlighting, and can be run from a USB key.  You should all download Notepad++ now to get started.
+
+Other text editors exist.  Windows comes with Notepad.  Linux and Mac OS X come with a variety of tools.  Sublime Text is a very popular text editor, but it isn't free.  From the point of view of the module, the team will not specify a text editor you must use.  It is up to your own personal preference.
+
+We will look at Notepad++ as an example of starting up.  When run, you should have a startup screen as shown in Figure~\ref{fig:notepad++}.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\textwidth]{notepad++}
+\caption{Notepad++ Start Screen}
+\label{fig:notepad++}
+\end{figure}
+
+In the \emph{File} menu you can create and save files.  \emph{For code highlighting to work, you must save the file with the correct extension}.  For the first few units we will be using C.  This means all files should be saved with the \texttt{.c} extension.  It is also recommended that you save your files somewhere sensible.  The \texttt{H} drive is probably the best place, although if you are familiar with version control, a repository is even better.  DropBox, OneDrive, etc. are options, but can give you conflicts when we move onto Visual Studio.
+
+\subsection{Running from the Command Line}
+
+For the first part of the module, we will be working from the command line to compile our applications.  This means you need to open the Visual Studio Developer Command Prompt.  You will find this under \emph{Visual Studio 2015} in the \emph{Start} menu of your computer (unless you are using a JKCC machine - see below).  In the Visual Studio 2015 sub-folder, you will find a link called \emph{Visual Studio Tools}.  This will open a Windows Explorer window.  From here, select \emph{Developer Command Prompt for VS2015}.  This should open a window as shown in Figure~\ref{fig:command-prompt}.
+
+\begin{framed}
+\textbf{Visual Studio Developer Command Prompt in the JKCC}
+
+The setup for in the Jack Kilby Centre is a little different than a standard desktop so you will have to do a little more work.  First of all, you will have to run Visual Studio 2013 at least once.  This is done in the \textbf{Application Window}.  You will find it under the following:
+
+\textbf{Applications $\Rightarrow$ Faculty of Engineering, Computing, and Creative Industries $\Rightarrow$ School of Computing}
+
+From here select \textbf{Visual Studio 2013 Run}.  Once Visual Studio has started, you can find the shortcuts to open a command prompt under \textbf{C:/Program Files/Microsoft Visual Studio 12.0/Common7/Tools/Shortcuts}.
+
+You can also open a command prompt from Visual Studio using the menu \textbf{Tools $\Rightarrow$ Visual Studio Command Prompt}.
+\end{framed}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\textwidth]{command-prompt}
+\caption{Visual Studio Command Prompt}
+\label{fig:command-prompt}
+\end{figure}
+
+We now need to use some command line instructions to move to the correct folder where you are saving your files.  Let us say that you are storing your files on your \texttt{H} drive under a folder called \texttt{set07109}.  The commands to use are:
+
+\begin{lstlisting}[style=DOS]
+H:
+cd set07109
+\end{lstlisting}
+
+The first command (\texttt{H:}) changes the drive being accessed to the \texttt{H} drive.  The second command (\texttt{cd set07109}) changes the folder to \texttt{set07109}.  If you need to go up a directory in the folder structure, you can use the \texttt{cd ..} command.  You can find out more about using the command prompt at \url{http://dosprompt.info/}.
+
+\section{Hello World! What Else?}
+
+As with every introduction to a new programming language we will start with a simple Hello World application.  However, before diving straight into that let us do a brief introduction to the C programming language.
+
+\subsection{The C Programming Language}
+
+C is one of the most (if not the most) popular programming languages in the world.  It is also one of the oldest languages still in major use (C was developed between 1969 and 1973).  Unlike modern languages (e.g. Java), C is not object-oriented.  It is quite a simple language, and is very close to how the CPU operates (C is often called a \emph{systems programming language}).  Most operating systems are written in C, and most operating system APIs are C based.
+
+C is considered the base language of many other common languages.  Many languages are referred to as \emph{C like}.  These include Java, C\#, JavaScript, Python and PHP.  As such, the syntax of C is familiar to nearly all programmers as they will generally be working in a C based language.  It could be argued that nearly all commercial software in the world is programmed by \emph{C like} programmers.
+
+We will explore C as we work through the module.  There are some differences when compared to Java and other modern languages.  In particular, C relies on an understanding of memory and memory management to fully appreciate.  We will work towards this understanding as we work through the module.
+
+\subsection{Hello World Code}
+
+OK, let us dive right in and write our first C application.  As stated, we will write a Hello World application.  This code should be saved in a file called \texttt{hello.c}.  The code is given below.
+
+\begin{lstlisting}[caption=Hello World in C]
+// stdio contains standard C input-output functions
+#include <stdio.h>
+
+// Our main function.  
+// argc is the number of command line arguments
+// argv are the command line arguments
+// We will look at these later
+int main(int argc, char **argv)
+{
+    // Print hello world to the screen
+    printf("Hello world!\n");
+    // Return value from program
+    return 0;
+}
+\end{lstlisting}
+
+Let us look through this code to get an idea of what is going on:
+\begin{itemize}
+\item Lines starting with a // are comments.  These lines are ignored by the compiler.  You should use comments as much as possible to understand your code.
+\item Line 2 is \texttt{\#include <stdio.h>}.  Lines that start with a \# are pre-processor commands.  We will look more at the pre-processor in the next unit.  This line is including the functionality in the \texttt{stdio.h} file.  This is part of the C standard library, and allows us to perform basic input-output (I/O) commands.  Hence the name \texttt{std} (standard) \texttt{io} (input-output).  Including existing code makes our life much easier.
+\item Line 8 is the start of our main application.  The C compiler expects the main part to have the name \texttt{main}.  We also define two incoming parameters - \texttt{argc} and \texttt{argv}.  We will look at these values later in this unit.
+\item Line 11 is where we print out our Hello World message.  To do this we use the \texttt{printf} function.  Also note the use of \texttt{\textbackslash n}.  This denotes that a new line should be added to the end of the printed line.
+\item Line 13 is where we exit the application by returning from our \texttt{main} function.  This returned value can be used by other applications to determine the successful completion of our Hello World application.  In general, 0 is considered OK and other values are considered error codes.  We won't really look into this.
+\end{itemize}
+
+\begin{framed}
+\texttt{printf}
+
+The \texttt{printf} function is used to print text to the command line.  It takes the following form:
+
+\texttt{printf("format", params...);}
+
+The \texttt{format} part of the call is the most interesting.  We will look at some examples of this through the module.  However, the following examples should help:
+\begin{itemize}
+\item \texttt{printf("Hello World\textbackslash n");} - prints `Hello World' to the command line
+\item \texttt{printf("x = \%d \textbackslash n", x);} - prints the value of \texttt{x}.  For example, if \texttt{x} is 5, then it prints `x = 5'.  The \texttt{\%d} value is a place holder telling \texttt{printf} to insert the parameter in it's place
+\item \texttt{printf("Hello \%s. You are \%d years old \textbackslash n", name, age);} - prints a welcome message.  For example, if \texttt{name} is Kevin and \texttt{age} is 36 then it prints `Hello Kevin.  You are 36 years old'.  \texttt{\%s} is another place holder.  Notice that values are placed in the place holders in the order they are given as parameters.
+\end{itemize}
+
+The place holders we will look at through the next few units.  However, the two we have used just now are:
+\begin{description}
+\item[\texttt{\%d}] an integer value
+\item[\texttt{\%s}] a string of characters
+\end{description}
+\end{framed}
+
+\begin{framed}
+\textbf{Escape Characters}
+
+The \texttt{\textbackslash n} value in the \texttt{printf} statement is what we call an \emph{escape character}.  This is a character we cannot type simply using a keyboard.  The \texttt{\textbackslash n} value adds a new line character.  Other escape characters we will come across are:
+
+\begin{itemize}
+\item \texttt{\textbackslash t} - inserts a tab
+\item \texttt{\textbackslash 0} - null terminator.  Used to end strings of characters
+\end{itemize}
+
+Wikipedia provides a comprehensive list of escape characters - \url{http://en.wikipedia.org/wiki/Escape_sequences_in_C}.
+
+\end{framed}
+
+\begin{framed}
+\textbf{Code structure}
+
+\emph{Code quality is one of the most important habits you should pick up as a new programmer!}  Having tidy, well laid out code will make your life easier in the long run.  Employers want to see your code, and will expect it to be of high quality.  You will also be assessed in university on the quality of your code.
+
+For this module you need to adopt a style and stick to it.  In C/C++, the standard style is to have curly brackets on new lines.  It is likely you have seen Java and JavaScript open curly brackets on the same line.  If this is what you prefer, OK.  But be consistent.
+
+Indentation is also important.  Code blocks should be indented based on scope.  This is fundamental and carries across all languages.  Get in the habit now.
+\end{framed}
+
+\subsection{Building your Application}
+
+We are now ready to compile our application.  To do this we are using Microsoft's C/C++ compiler - \texttt{cl}.  We will visit some of the different commands we can give \texttt{cl} through the module.  For the moment we will perform the simplest task - having \texttt{cl} build an executable from a single \texttt{.c} file.  The command to do this is as follows:
+
+\begin{lstlisting}[style=DOS, caption=Building our Hello World Application]
+cl hello.c
+\end{lstlisting}
+
+Once run, you should receive the following output:
+
+\begin{lstlisting}[style=DOS, caption=Output from Building our Hello World Application]
+Microsoft (R) C/C++ Optimizing Compiler Version 18.00.30501 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+hello.c
+Microsoft (R) Incremental Linker Version 12.00.30501.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:hello.exe
+hello.obj
+\end{lstlisting}
+
+The compiler goes through two stages:
+\begin{enumerate}
+\item Compiling the code in \texttt{hello.c}
+\item Linking the generated object file to the system libraries to allow running.  We will look at this stage later in the unit.
+\end{enumerate}
+
+If there is a problem, then the compiler will give you an error message.  For example, if we remove the \texttt{;} at the end of line 11 as follows:
+
+\begin{lstlisting}[caption=Incorrect Hello World in C]
+// stdio contains standard C input-output functions
+#include <stdio.h>
+
+// Our main function.  
+// argc is the number of command line arguments
+// argv are the command line arguments
+// We will look at these later
+int main(int argc, char **argv)
+{
+	// Print hello world to the screen
+	printf("Hello world!\n")
+	// Return value from program
+	return 0;
+}
+\end{lstlisting}
+
+when compiled the compiler will give the following output:
+
+\begin{lstlisting}[style=DOS, caption=Error message returned from a build]
+hello.c
+hello.c(13) : error C2143: syntax error : missing ';' before 'return'
+\end{lstlisting}
+
+Here, the error message says there is a problem on line 13 of hello.c.  It is saying that there is a missing \texttt{;} before this line.  This is the \texttt{;} we removed from line 11.
+
+This is an important concept to understand.  The compiler tries its best to tell you the line that has a problem, but sometimes it will tell you the line of code after.  This is because the error doesn't cause a problem on the line we removed the \texttt{;} from, but on the next one.
+
+Make sure that your application compiles and then run it by typing \texttt{hello} at the command prompt:
+
+\begin{lstlisting}[style=DOS, caption=Running the Hello World Application]
+hello
+Hello world!
+\end{lstlisting}
+
+\section{C Strings}
+\label{sec:c-strings}
+
+So we've printed a message.  Let us now look in more detail at how C treats strings of characters (how we store text).  Being a low level language, C treats text just as it is represented in memory - just a block of memory with character data in it.  The text has a starting point in memory (represented by a memory address or pointer), and C will treat every character in memory after this point as a member of the string until it finds a null terminator (\texttt{\textbackslash 0} in text or 0 as a value).  Figure~\ref{fig:c-strings} illustrates the general idea.
+
+\begin{figure}[htb]
+\centering
+\includegraphics{c-strings}
+\caption{C Strings and null Termination}
+\label{fig:c-strings}
+\end{figure}
+
+The reason C does this is because it takes up the least amount of memory overhead.  Remember C is an old language.  Back then, every byte of memory was precious.  Using a null terminator for strings of characters had only a single byte overhead.  A string retaining its size (as Java does) has a two or more byte overhead.  Therefore, null terminators were used.
+
+C provides a number of helper functions for working with strings.  These functions are provided in the \texttt{string.h} header file.  We will use some of these functions over the next few examples.  Let us first look at different methods of declaring strings of characters in C.
+
+\begin{lstlisting}[caption=C Strings]
+#include <stdio.h>
+// contains helper functions for strings
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    // Declare a character array for message
+    char msg_1[5] = {'H','e','l','l','o'};
+    // Declare a second character array for message
+    char msg_2[8] = " World!";
+    // Declare a third message
+    char msg_3[9] = "Goodbye!\0";
+    // Declare a forth message - no size
+    char msg_4[] = "Compiler worked out my size!";
+    // Declare a fifth message - use a pointer
+    char *msg_5 = "Compiler worked out my size too!";
+
+    // Print messages.  1st message is not null-terminated
+    printf("%s\n", msg_1);
+    printf("%s\n", msg_2);
+    printf("%s\n", msg_3);
+    printf("%s\n", msg_4);
+    printf("%s\n", msg_5);
+
+    return 0;
+}
+\end{lstlisting}
+
+We have used 5 different techniques to declare a string of characters:
+\begin{enumerate}
+\item Declaring an array of \texttt{char} by declaring each individual member of the array.  The array size of 5 means that there is no null terminator
+\item Declaring an array of \texttt{char} by using a string initializer (using quotation marks).  The string initializer automatically adds a null terminator.  As the array is 8 characters long, then the null terminator is included.
+\item Declaring an array of \texttt{char} using the string initializer and explicitly adding the null terminator.  This actually defines two null terminators - the one we have and one after the string.
+\item Declaring an array of \texttt{char} using the string initializer but not setting the size of the array.  The compiler will work this out for us.
+\item Declaring a pointer to a block of \texttt{char} data in memory.  The compiler takes care of initialising the memory for us.  There is actually no real difference between this method and the previous one.  An array is just a block of memory.
+\end{enumerate}
+
+\begin{framed}
+\textbf{Arrays in C}
+
+You have probably come across arrays by now, so this might be a bit of a refresh.
+
+Arrays in C operate like other languages.  We have the type of the array (for strings we are using character data or \texttt{char}) and the size (the number in the brackets).  C requires that you know the size of the array at compile time.  That is, the following code will not compile:
+
+\begin{lstlisting}
+int x = 42;
+char data[x]; // x is not a constant value
+\end{lstlisting}
+
+This is because C needs to allocate the required memory when the program is compiled.  We will cover memory allocation in far more detail later in the module.  At present, it is enough to know the standard format of array declaration:
+
+\texttt{\emph{type} name[size];}
+
+Where \texttt{size} is a constant, compile time value.
+\end{framed}
+
+\begin{framed}
+\textbf{What is a Pointer?}
+
+We've introduced the concept of pointers, and this is one of the areas new programmers in C get really caught up.  We will be introducing pointers more and more throughout the module, and your understanding will grow over this time.  At the moment, consider a pointer at its most basic form - it \emph{points} to a location in memory, and tells the compiler the \emph{type} of memory that is located there.  A pointer effectively contains a memory address (think back to computer systems and memory here) which we can use to access a particular area of memory.  This is how arrays are actually dealt with.
+
+From the point of view of \texttt{printf} and strings, we pass \texttt{printf} a location in memory and tell it to consider this as character data.  \texttt{printf} then goes through the memory, displaying the data on the screen using ASCII to convert values into characters, until such time it finds a null terminator (0).
+
+Pointers are declared using the \texttt{*} type:
+
+\texttt{\emph{type} *name;}
+
+The use of \texttt{*} can become confusing as we will see it used to also \emph{dereference} pointers, as well as the obvious use for multiplication.  We will introduce these ideas slowly.
+\end{framed}
+
+You should now compile and run your program.  Let us assume you have saved the code in a file called \texttt{using-strings.c}.  Then you would compile and run using the following commands:
+
+\begin{itemize}
+\item \texttt{cl using-strings.c}
+\item \texttt{using-strings}
+\end{itemize}
+
+If the program doesn't compile, try and fix your errors.  If you are still having problems, ask for help.
+
+Running the application should give you an output similar to the following:
+
+\begin{lstlisting}[style=DOS, caption=Output from Strings Application]
+Hello¨µ
+ World!
+Goodbye!
+Compiler worked out my size!
+Compiler worked out my size too!
+\end{lstlisting}
+
+There is a very good chance that you will have some extra characters printed after the `Hello' message.  This is due to the lack of null termination.  \texttt{printf} keeps printing characters in memory until it encounters a null terminator.  This problem is actually a classic bug in low level programming, and can cause all sorts of problems with security.
+
+\section{Reading your Name}
+
+Outputting to the command line is one thing, but what about inputting messages.  Let us look at how we capture input from the command line.
+
+C actually provides a few different techniques for capturing input, but we are going to use the simplest one.  The function we are going to use is called \texttt{fgets}.  It takes the following form:
+
+\texttt{fgets(\emph{string}, \emph{length}, \emph{stream});}
+
+The parameters are as follows:
+\begin{description}
+\item[\texttt{string}] - the array of memory (\texttt{char} array or pointer) to read into
+\item[\texttt{length}] - the maximum number of characters to read.  \emph{This must be equal to or less than the size of memory being read into}.
+\item[\texttt{stream}] - the location to read data from.  This is a \texttt{FILE*} (pointer to a \texttt{FILE}) type.  We will look at file input/output later in the module.  However, we can treat the command line as a file.  It has the name \texttt{stdin} (STanDard INput).
+\end{description}
+
+Let us create an example application for reading in a user's name from the keyboard.  This example also uses some additional string functions which we will explain shortly.  The application asks for a first name and last name, and then joins them together into a full name. Algorithm~\ref{alg:username} provides the steps being taken. 
+
+\begin{algorithm}
+\centering
+\begin{algorithmic}[1]
+\Procedure{main}{}
+\State prompt for first name
+\State read first name
+\State add null terminator to first name
+\If{first name == `Kevin'}
+\State print hello Kevin message
+\Else
+\State print disappointed message
+\EndIf
+\State prompt for last name
+\State read last name
+\State add null terminator to last name
+\State add first name to full name
+\State add space to full name
+\State add last name to full name
+\State print full name
+\State print length of full name
+\EndProcedure
+\end{algorithmic}
+\caption{Prompting for and Displaying the Username}
+\label{alg:username}
+\end{algorithm}
+
+The (almost complete) code listing for this application is given below:
+
+\begin{lstlisting}[caption=Reading from the Console, label=lst:read-name]
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    // Declare character arrays to store name
+    char first_name[50];
+    char last_name[50];
+    char full_name[50];
+
+    // Prompt for first name
+    printf("Please enter your first name: ");
+    // Read name into array from stdin (standard input)
+    fgets(first_name, 50, stdin);
+    
+    // Remove the newline character
+    // Gets the length of the string.  Finds the null terminator
+    int len = strlen(first_name); 
+    // Check if last character is a newline
+    if (len > 0 && first_name[len - 1] == '\n')
+        // If so set newline character to null terminator
+        first_name[len - 1] = '\0';
+    
+    // Check if your name is Kevin
+    if (strcmp(first_name, "Kevin") == 0)
+        printf("Hey! Another Kevin\n");
+    else
+        printf("Oh well\n");
+
+    // ***** DO THE SAME FOR LAST NAME *****
+
+    // Join the strings
+    // strcat looks for null terminator.  Set first character of full name
+    full_name[0] = '\0';
+    // Add first name to full name
+    strcat(full_name, first_name);
+    // Add a space
+    strcat(full_name, " ");
+    // Add last name
+    strcat(full_name, last_name);
+    // Print name
+    printf("Your full name is %s which is %d characters long\n", full_name, strlen(full_name));
+
+    return 0;
+}
+\end{lstlisting}
+
+\begin{framed}
+\textbf{String Functions in C}
+
+We have used some of the first C functions from the \texttt{string.h} library.  These have allowed us to work with the blocks of \texttt{char} memory data in a simple manner.  There are more functions than just these, and you should do some further research if you are interested.  The ones we have used are:
+
+\begin{description}
+\item[\texttt{strlen}] - gets the length of a string
+\item[\texttt{strcmp}] - compares two strings to see if they are equal.  Returns 0 if the strings match.  Returns $<0$ if the first string comes before the second alphabetically.  Returns $>0$ if the first string comes after the second alphabetically.  The \emph{case} of the strings matters here.  If you remember your ASCII, upper case letters have a higher value than lower case
+\item[\texttt{strcat}] - adds the second string to the end of the first string.  Addition is done at the first null terminator in the first string.  All characters in the second string are added.
+\end{description}
+
+As we are dealing with raw memory, some of these functions can overwrite parts of memory you do not intend to.  \emph{Be careful of your data sizes!}.
+\end{framed}
+
+\subsection{Exercise}
+
+The code for this application is not complete, and you need to add the functionality to read in the last name (the part that says \texttt{// ***** DO THE SAME FOR LAST NAME *****}).  It is almost identical to the first name reading code, except we are using the \texttt{last\_name} variable.  Once working and running, you should get an output similar to the following:
+
+\begin{lstlisting}[style=DOS, caption=Sample Output from Read Name Application]
+Please enter your first name: Kevin
+Hey! Another Kevin
+You entered 5 characters
+Please enter your last name: Chalmers
+You entered 9 characters
+Your full name is Kevin Chalmers which is 14 characters long
+\end{lstlisting}
+
+\begin{framed}
+\textbf{Variable Naming}
+
+\emph{We have declared our first variable data values in C!!!}.  As you can see it isn't hard.  However, what you should be taking note of is the variable names used.  \emph{Variable names should describe the variable!}.  Again, this falls under code quality, and it is important to use sensible consistent names throughout your code.  There are a number of variable naming `standards' and if you have one and are \emph{consistent} then go ahead and use it.  Just ensure your code is tidy and understandable.
+\end{framed}
+
+\begin{framed}
+\textbf{What Happens When I Enter too Many Characters?}
+
+OK it is important to realise what \texttt{fgets} does when working with \texttt{stdin}.  Lets say you enter 51 characters for your first name.  What happens to the 51st character?  Well it gets left on the buffer and is captured the next time you call \texttt{fgets} on \texttt{stdin}.  \emph{Try this out and see the result}.  You need to understand these little issues to avoid common bugs in programming input-output based systems.
+\end{framed}
+
+\section{Conditionals and Loops}
+
+So far our applications have been very basic.  We perform a number of operations in order then exit.  We did introduce an \texttt{if} statement in the last piece of code, and didn't really explain it.  You should have come across \texttt{if} statements by now, but just as a refresher.
+
+\begin{framed}
+\textbf{What is an \texttt{if} Statement?}
+
+\texttt{if} is our most basic form of branching statement in C.  It allows us to test a condition and execute a piece of code based on the value of that condition.  If the condition value evaluates to true, then we execute the code within the brackets of the \texttt{if} statement.
+
+\begin{lstlisting}
+if (condition)
+{
+    // If condition is true this code is run
+    ...
+}
+\end{lstlisting}
+
+If the condition evaluates to false, then we don't execute the code.  When we want different code to run when the condition isn't true, we use the \texttt{else} statement:
+
+\begin{lstlisting}
+if (condition)
+{
+    // If condition is true this code is run
+    ...
+}
+else
+{
+    // If condition is false this code is run
+    ...
+}
+\end{lstlisting}
+
+We can combine multiple \texttt{if} statements together if we wish:
+
+\begin{lstlisting}
+if (condition1)
+{
+    // If condition1 is true this code is run
+    ...
+}
+else if (condition2)
+{
+    // If condition1 is false and condition2 is true this code is run
+    ...
+}
+else
+{
+    // If condition1 is false and condition2 is false this code is run
+    ...
+}
+\end{lstlisting}
+\end{framed}
+
+\texttt{if} statements and branching / conditional operations are what we call \texttt{selection} operations.  So far we have only been using \emph{sequence} of operations.  Adding \emph{selection} allows us to run different code based on conditions.  \emph{Sequence} and \emph{selection} provide two of the three main constructs of programming:
+
+\begin{description}
+\item[sequence] - commands are executed in sequence.
+\item[selection] - a choice (selection) of commands can be taken based on some conditional value.  This allows different sequences of code to be run based on conditions.
+\item[iteration] - a sequence of commands can be run more than once.  This is supported by the use of \emph{looping} statements.
+\end{description}
+
+\begin{framed}
+\textbf{Loops in C/C++}
+
+C and C++ support the same basic loops that Java supports.  Just as a reminder these are:
+\begin{description}
+\item[\texttt{while(condition)}] - the commands in the \texttt{while} block are executed as long as the given condition is true.  This means that the loop may never run if \texttt{condition} is false
+\item[\texttt{do} ... \texttt{while(condition)}] - the commands in the \texttt{do while} loop are executed as long as the given condition is true.  The loop will execute at least once.
+\item[\texttt{for(value; condition; command)}] - \texttt{for} loops allow us to perform some form of initialisation (the \texttt{value} part) at the start of the loop, test for a condition at the start of each loop iteration (the \texttt{condition} part), and perform a command at the end of each iteration (the \texttt{command} part).
+\end{description}
+
+We will come across examples of these as we work through the rest of the module.
+\end{framed}
+
+Now we have introduced the basic ideas of looping and conditionals, let us build a simple application using these techniques.  The application we are going to build will print out a triangle of stars based on a number input.  Algorithm~\ref{alg:stars} provides an overview of the program flow.
+
+\begin{algorithm}
+\centering
+\begin{algorithmic}[1]
+\Procedure{main}{}
+\State $flag \gets 1$
+\While{$flag = 1$}
+\State prompt for number of stars ($number$)
+\State read in number of stars ($number$)
+\If{$number = 0$}
+\State $flag \gets 0$
+\State \texttt{continue}
+\EndIf
+\For{$i \gets 0$ to $number$}
+\For{$j \gets 0$ to $i$}
+\State print \texttt{*}
+\EndFor
+\State print new line
+\EndFor
+\EndWhile
+\State print goodbye
+\EndProcedure
+\end{algorithmic}
+\caption{Star Printing Algorithm}
+\label{alg:stars}
+\end{algorithm}
+
+The code listing for this algorithm is below:
+
+\begin{lstlisting}[caption=Printing Stars]
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    // Flag (1 or 0) to indicate if we should continue
+    int flag = 1;
+    // while loop
+    while (flag)
+    {
+        // Character array to read number into
+        char buffer[10];
+        // Prompt for value
+        printf("How many stars? (0 to quit) ");
+        // Read in value
+        fgets(buffer, 10, stdin);
+        // Convert string to number
+        int number = atoi(buffer);
+        // If number equals 0 then set flag and continue
+        if (!number)
+        {
+            flag = 0;
+            continue;
+        }
+        // Print stars
+        for (int i = 0; i < number; ++i)
+        {
+            for (int j = 0; j < i; ++j)
+                printf("*");
+            printf("\n");
+        }
+    }
+    // Say goodbye
+    printf("Goodbye!\n");
+
+    return 0;
+}
+\end{lstlisting}
+
+\begin{framed}
+\textbf{True and False in C}
+
+Line 9 might seem strange to those who haven't used C before.  We are not testing to see if the \texttt{flag} value is equal to 1.  We are treating it like it is either a true or false value.  This is one of problems that can effect new C programmers.
+
+C does not have a \texttt{boolean} type as Java.  It is actually quite a limitation.  As such, C can treat any value as a \texttt{boolean} value.  The following rules are used to determine if a value is true or false:
+\begin{itemize}
+\item Value equals 0 means that value is false
+\item Any other value means true - including negative values
+\end{itemize}
+
+To be fair, a \texttt{bool} type is provided by the \texttt{stdbool.h} header file, but loops and conditionals don't require you to use them - they use the above rules.
+
+Treating boolean type values in this manner has it's advantages and disadvantages:
+\begin{itemize}
+\item An object that is \texttt{null} (we will look at this in more detail later in the module) then it is 0 (false).  This allows us to write statements based on whether an object is valid or not.  This can make code neater, but can be confusing to non-C/C++ programmers.
+\item The execution of a statement is 0 or 1 based on whether it is successful.  \emph{This can lead to many bugs in C/C++ programs} (although a good compiler should spot it).
+\end{itemize}
+
+On the last point, the following code is an example of one of the issues:
+\begin{lstlisting}
+int x = 10;
+if (x = 5)
+{
+    // Note the single equals.  We assigned 5 to
+    // x successfully.  The code in the if block
+    // will run!
+}
+\end{lstlisting}
+
+The \texttt{if} condition on line 2 does equal true (1).  We can assign 5 to \texttt{x}.
+\end{framed}
+
+\begin{framed}
+\textbf{\texttt{break} and \texttt{continue}}
+
+Line 23 contains another keyword - \texttt{continue}.  This keyword is used to control how a loop operates.  There is another similar keyword - \texttt{break}.
+
+\begin{description}
+\item[\texttt{continue}] - ends this iteration of the loop and allows the condition to be checked to see if another iteration should be executed.
+\item[\texttt{break}] - exits the loop completely
+\end{description}
+
+The \texttt{break} statement is also used in \texttt{case} statements which we will look at shortly.  These statements are useful to remember when you want to change the behaviour of a loop.
+\end{framed}
+
+\begin{framed}
+\textbf{Converting a String to a Value}
+
+We have introduced a lot of new ideas in this piece of code!  On line 18 we used another new function - \texttt{atoi}.  This function converts a string to an integer (aSCII to integer).  Why do we need to do this?  Well there is a difference between a value and it's string representation.  \emph{This is another fundamental concept you need to understand!}.  If you remember your ASCII codes (or you can look up an ASCII table), the character for `1' is equal to 49.  This is how the computer stores the textual representation.  We need to convert this to the actual value 1.  The \texttt{atoi} function does this for us.
+
+We will look at other conversion functions shortly.
+\end{framed}
+
+Running this application provides output similar to the following:
+
+\begin{lstlisting}[style=DOS, caption=Output from Stars Application]
+How many stars? (0 to quit) 8
+
+*
+**
+***
+****
+*****
+******
+*******
+How many stars? (0 to quit) 4
+
+*
+**
+***
+How many stars? (0 to quit) 1
+
+How many stars? (0 to quit) 0
+Goodbye!
+\end{lstlisting}
+
+It isn't quite working the way we want it to yet!  Work through the following exercises to fix the problems.
+
+\subsection{Exercises}
+
+\begin{enumerate}
+\item Fix the application so the correct number of stars are output.  You will notice that we do not print a line of stars with the number entered.  You will have to modify the conditional test on the \texttt{for} loop to fix this.
+\item Modify the application so it doesn't need the \texttt{flag} value.  To do this you will need to use the \texttt{break} statement.
+\end{enumerate}
+
+\section{\texttt{case} Statements - Creating a Menu}
+
+When we discussed \texttt{if} statements we introduced the idea of using multiple \texttt{else if} statements to combine different conditions.  Although this is good for many general cases, we sometimes want to branch based on the value of a variable.  This is where \texttt{case} statements come in useful.  In particular, menus are a perfect example of using a \texttt{case} statement effectively.
+
+As an example, let us build a simple menu application.  Algorithm~\ref{alg:menu} outlines the basic behaviour.
+
+\begin{algorithm}
+\centering
+\begin{algorithmic}[1]
+\Procedure{main}{}
+\State $flag \gets 1$
+\While{$flag = 1$}
+\State print menu
+\State read input ($number$)
+\Switch{$number$}
+\Case{$1$}
+\State print hello
+\EndCase
+\Case{$2$}
+\State print goodbye
+\EndCase
+\Case{$0$}
+\State print exit
+\State $flag \gets 0$
+\EndCase
+\Case{default}
+\State print error
+\EndCase
+\EndSwitch
+\EndWhile
+\EndProcedure
+\end{algorithmic}
+\caption{Menu System}
+\label{alg:menu}
+\end{algorithm}
+
+The general idea is that we print a menu, get the input, and act on the input based on the menu options.  The C code implementation of Algorithm~\ref{alg:menu} is given below:
+
+\begin{lstlisting}[caption=Using \texttt{switch} and \texttt{case} Statements]
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    int flag = 1;
+    while (flag)
+    {
+        // Print menu
+        printf("1 - say hello\n");
+        printf("2 - say goodbye\n");
+        printf("0 - exit\n");
+        printf("Enter choice - ");
+        // Read input
+        char buffer[10];
+        fgets(buffer, 10, stdin);
+        // Convert to number
+        int number = atoi(buffer);
+
+        // Work on input
+        switch (number)
+        {
+            case 1:
+                printf("Hello World!\n");
+                break;
+            case 2:
+                printf("Goodbye World!\n");
+                break;
+            case 0:
+                printf("Exiting...\n");
+                flag = 0;
+                break;
+            default:
+                printf("*** INVALID INPUT ***\n");
+                break;
+        }
+    }
+
+    return 0;
+}
+\end{lstlisting}
+
+\begin{framed}
+\textbf{The \texttt{default} Keyword}
+
+The \texttt{default} keyword is only called if none of the other cases are met.  It is useful to deal with erroneous behaviour.  It can be left out if you wish.
+\end{framed}
+
+An example output from this application is given below:
+
+\begin{lstlisting}[style=DOS, caption=Output from Menu Application]
+1 - say hello
+2 - say goodbye
+0 - exit
+Enter choice - 1
+Hello World!
+1 - say hello
+2 - say goodbye
+0 - exit
+Enter choice - 2
+Goodbye World!
+1 - say hello
+2 - say goodbye
+0 - exit
+Enter choice - 4
+*** INVALID INPUT ***
+1 - say hello
+2 - say goodbye
+0 - exit
+Enter choice - 0
+Exiting...
+\end{lstlisting}
+
+\subsection{Exercise}
+
+What will happen if you remove the \texttt{break} statements from the \texttt{switch}-\texttt{case} statements?  Try this out.  Do you understand the output?
+
+\section{Functions}
+
+We have looked at how we can use conditionals and loops to avoid writing lots of code, but what other techniques do we have?  Hopefully you remember the idea of writing functions (or methods, procedures, sub-routines depending on how you were introduced to the idea).  Functions allow us to separate our code into different, \emph{reusable} sections.  This is the foundation of working in a \texttt{structured programming} manner.
+
+\begin{framed}
+\textbf{What is a Function?}
+
+We are going to use the more general definition of function in a programming context rather than the mathematical or functional programming idea.  A function is just a collection of statements that we can run that returns some form of value (possibly \texttt{void} which means no value) given a set of parameters.  In C, a function takes the following form:
+
+\texttt{\emph{return-type} function-name(\emph{params})}
+
+The parts of the function definition are:
+\begin{description}
+\item[\texttt{function-name}] - the name we use to call the function.  For example, we have been using \texttt{printf} throughout our code.
+\item[\texttt{return-type}] - the type of value returned by the function.  We will look in more details at data types in the next unit.
+\item[\texttt{params}] - a collection of parameters (with types) we pass to the function.
+\end{description}
+
+The point of a function (or procedure, method, sub-routine) is to allow us to call another piece of functionality.  Usually we write functions that are reusable (have a particular purpose) and small (allow us to separate our code into easy to understand chunks).  \emph{Writing functions comes with practice!}.  You might find it difficult to determine how to separate your code initially, but it will come with experience.
+\end{framed}
+
+\begin{framed}
+\textbf{Parameter Passing}
+
+\emph{We will be covering parameter passing in far greater detail towards the middle of the module}.  Parameter passing is another area where novice programmers can slip up.  At the moment you should consider that a parameter you pass into a function is a \emph{copy}.  Let us reiterate that idea - \emph{parameters passed into a function are a copy of that value!}.  This means that if you change the value in a function, this change is not reflected outside the function.  The function has only changed its copy.  There is a good chance you have worked with the idea of passing values by reference in Java and not thought about it.  We will spend an entire unit of this module looking at parameter passing.
+\end{framed}
+
+Let us build an example for working with functions.  Our application will prompt a user for their name and then calculate their wage based on hours worked and hourly rate.
+
+\begin{algorithm}
+\centering
+\begin{algorithmic}[1]
+\Function{calculate\_wage}{$rate$, $hours$}
+\State \Return $rate \times hours$
+\EndFunction
+\Statex
+\Procedure{main}{}
+\State $flag \gets 1$
+\While{$flag = 1$}
+\State read name ($name$)
+\If{$name = "0"$}
+\State $flag \gets 0$
+\State \texttt{continue}
+\EndIf
+\State read rate ($rate$)
+\State read hours ($hours$)
+\State $wage \gets$ \Call{calculate\_wage}{$rate$, $hours$}
+\State print wage
+\EndWhile
+\EndProcedure
+\end{algorithmic}
+\caption{Wage Calculator}
+\label{alg:wages}
+\end{algorithm}
+
+We will also write a short function (or procedure - it doesn't return a value) that will remove the newline character from our entered name.  We did this before in our name application.  We will also enable the modification of this value by passing it in as a \emph{pointer}.  Do not worry about this at the moment. We will introduce these ideas more and more through the units we are working through
+
+\begin{lstlisting}[caption=Creating and Calling a Function]
+#include <stdio.h>
+// The main C standard library header
+#include <stdlib.h>
+#include <string.h>
+
+// Calculate wage
+double calculate_wage(double rate, double hours)
+{
+	return rate * hours;
+}
+
+// Remove newline.  Pass in modifiable value
+void remove_newline(char *str)
+{
+	// Gets the length of the string
+	int len = strlen(str); 
+	// Check if last character is a newline
+	if (len > 0 && str[len - 1] == '\n')
+		// If so set newline character to null terminator
+		str[len - 1] = '\0';
+}
+
+int main(int argc, char **argv)
+{
+	// Flag to continue
+	int flag = 1;
+	while (flag != 0)
+	{
+		// Buffer for name
+		char name[50];
+		// Buffer for number
+		char number[10];
+		// Prompt for first name
+		printf("Please enter your name: ");
+		// Read name into array
+		fgets(name, 50, stdin);
+		// Strip newline
+		remove_newline(name);
+		// If name is 0 then exit
+		if (strcmp(name, "0") == 0)
+		{
+			flag = 0;
+			continue;
+		}
+		// Prompt for hourly rate
+		printf("Enter hourly rate: ");
+		// Read value into array
+		fgets(number, 10, stdin);
+		// Convert to float
+		double rate = atof(number);
+		// Prompt for hours
+		printf("Enter hours: ");
+		// Read value into array
+		fgets(number, 10, stdin);
+		// Convert to float
+		double hours = atof(number);
+		// Calculate wage
+		double wage = calculate_wage(rate, hours);
+		// Output
+		printf("Wage for %s: %.2f\n", name, wage);
+	}
+	// Print goodbye
+	printf("Goodbye!");
+	
+	return 0;
+}
+\end{lstlisting}
+
+\begin{framed}
+\textbf{The \texttt{stdlib.h} Header File}
+
+We have added a new header file - \texttt{stdlib.h}.  This is the STanDard LIBrary header file, and contains quite a collection of useful functions - this is actually where the string conversion functions reside.  However, it should be one of the headers you always include in a C application.  In general, the following headers are the ones you should generally include as default:
+\begin{itemize}
+\item \texttt{stdlib.h}
+\item \texttt{stdio.h}
+\item \texttt{string.h} - if you are using text at all
+\end{itemize}
+\end{framed}
+
+\begin{framed}
+\textbf{The \texttt{atof} Function}
+
+We already used the \texttt{atoi} function.  \texttt{atof} converts a string to a floating point (decimal) number (aSCII to float).  \texttt{atof} returns a \texttt{double} value (double precision floating point).  We will look at data types in the next unit.
+\end{framed}
+
+\begin{framed}
+\textbf{Declaration Order}
+
+C and C++ are not as forgiving as Java and other languages when it comes to declaration order.  Before you can use a function or variable it has to be declared.  This is a question of scope.  We will be covering scope in more detail later in the module.  At the moment realise that if you want to use a function or variable at a point in your file, \emph{it must be declared earlier in the file than where you use it}.  Otherwise you will get an error.  The exercise will illustrate this.
+\end{framed}
+
+An example output from this application is shown below.
+
+\begin{lstlisting}[style=DOS, caption=Output from Wage Calculation Application]
+Please enter your name: Kevin
+Enter hourly rate: 35
+Enter hours: 35
+Wage for Kevin: 1225.00
+Please enter your name: Bob
+Enter hourly rate: 50
+Enter hours: 40
+Wage for Bob: 2000.00
+Please enter your name: Frank
+Enter hourly rate: 100
+Enter hours: 10
+Wage for Frank: 1000.00
+Please enter your name: 0
+Goodbye!
+\end{lstlisting}
+
+\subsection{Exercise}
+
+Move the \texttt{calculate\_wage} function after \texttt{main} and compile the program to see what happens.  You should get an 
+
+\begin{lstlisting}[style=DOS]
+Microsoft (R) Program Maintenance Utility Version 12.00.21005.1
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+        cl functions.c
+Microsoft (R) C/C++ Optimizing Compiler Version 18.00.30501 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+functions.c
+functions.c(64) : error C2371: 'calculate_wage' : redefinition; different basic
+types
+NMAKE : fatal error U1077: '"C:\Program Files (x86)\Microsoft Visual Studio 12.0
+\VC\BIN\cl.EXE"' : return code '0x2'
+Stop.
+\end{lstlisting}
+
+\section{Command Line Arguments}
+
+For our final application before moving onto what the compiler is doing let us examine the two values that we declare for our main application - \texttt{argc} and \texttt{argv}.
+
+\texttt{argc} provides a count of the number of command line arguments that have been passed into the application.  It is an integer value that provides information about its partner value - \texttt{argv}.
+
+\texttt{argv} is an interesting parameter.  Its type is \texttt{char**}, or a pointer to a pointer of \texttt{char}.  If you remember from our work on strings at the start of the unit, we defined a string as a \texttt{char*}.  We also defined an array of \texttt{char} as a \texttt{char*}.  A \texttt{char**} can be considered as an \texttt{array of strings}.  \texttt{argc} tells us how many strings we have.  As the strings are null terminated, we can use \texttt{strlen} to get the length of each string if we want.  Figure~\ref{fig:arguments} illustrates the general idea.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\textwidth]{arguments}
+\caption{Command Line Arguments Structure}
+\label{fig:arguments}
+\end{figure}
+
+As an example of working with the command line arguments, try the following (fairly short) application.
+
+\begin{lstlisting}[caption=Outputting Command Line Arguments, label=lst:command-line]
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+	// Loop for number of arguments
+	for (int i = 0; i < argc; ++i)
+	{
+		printf("Argument %d: %s\n", i, argv[i]);
+	}
+	printf("All arguments printed.\n");
+	
+	return 0;
+}
+\end{lstlisting}
+
+Running this application (let us assume you have called it \texttt{command-line}) provides the following output:
+
+\begin{lstlisting}[style=DOS, caption=Printing Command Lines]
+command-line hello world programming fundamentals
+Argument 0: command-line
+Argument 1: hello
+Argument 2: world
+Argument 3: programming
+Argument 4: fundamentals
+All arguments printed.
+\end{lstlisting}
+
+Notice that the name of the application is argument 0.  This does depend on the operating system running the application.  Windows provides the name as an argument.  This is worth remembering.
+
+\section{Compiling a Source File}
+
+We have done a quick overview of a number of basic programming concepts you should have been familiar with prior to the module (and possibly some new concepts).  Now to look at why this unit is called \emph{Compiling and Linking Programs}.  So far we have been doing both of these stages at once.  Now we will look at how these stages work together.
+
+When we program, we create some form of textual file that contains our commands written in some form of high level language (normally).  C is the high level language we are working in at the moment.  We then use some form of compiler to transform our code into something that our computer can understand.  This is the compilation step.
+
+When it comes to native code (such as written in C and C++) there is actually two stages:
+\begin{enumerate}
+\item Compile the code into an \emph{object} (\texttt{.obj}) file.  This is an intermediate file that has machine code within it but cannot be run - it does not know how
+\item Link a collection of \emph{object} files together to create an executable.  The linking process will also combine other libraries which allows the code to communicate with the operating system.
+\end{enumerate}
+
+The second stage is quite important to allow our application to run, and it adds a lot of extra code.  To illustrate this, look at the size of our Hello World application and the parts built:
+\begin{itemize}
+\item \texttt{hello.c} is 378 bytes in size
+\item \texttt{hello.obj} is 651 bytes in size
+\item \texttt{hello.exe} is 73216 bytes in size!
+\end{itemize}
+
+\texttt{hello.exe} is over 100 times larger that the initial file.  There is a lot of extra code added in the final application.  This is the linking step.
+
+Essentially we have the following steps occurring:
+
+\[
+\text{C code} \Rightarrow \text{object file} \Rightarrow \text{executable}
+\]
+
+Let us go through these two steps.  We will work using the \texttt{hello.c} code we created at the start of the unit.  To compile our code (produce an object file only) we use the following command:
+
+\begin{lstlisting}[style=DOS, caption=Compiling to a Object File]
+cl /c hello.c
+\end{lstlisting}
+
+This will provide the following output:
+
+\begin{lstlisting}[style=DOS, caption=Output from Object File Compilation]
+cl /c hello.c
+Microsoft (R) C/C++ Optimizing Compiler Version 18.00.30501 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+hello.c
+\end{lstlisting}
+
+It is as simple as that.  You can take a look at the \texttt{.obj} file but it will just look like numbers.  A Hex code viewer will show you a bit more.
+
+\section{Linking an Object File}
+
+So we have an object file, how do we create an executable file?  For this we use the \texttt{link} command.  To create our Hello World executable from our \texttt{hello.obj} we use the following command:
+
+\begin{lstlisting}[style=DOS, caption=Linking an Object File]
+link hello.obj
+\end{lstlisting}
+
+The output from this command is shown below:
+
+\begin{lstlisting}[style=DOS, caption=Output from Linking Stage]
+link hello.obj
+Microsoft (R) Incremental Linker Version 12.00.30501.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+\end{lstlisting}
+
+Not much to see here, but we have linked our object file and created an executable.  We will look at the linking step in more detail later in the module when we build libraries.
+
+\section{Outputting Assembly Code}
+
+In a way, the building of an object file is also a two step process.  C is considered a good systems programming language as it has a very close resemblance to assembly code.  We can make the \texttt{cl} compiler output assembly code for us to see the result.
+
+\begin{framed}
+\textbf{What is Assembly Code?}
+
+You will have hopefully been exposed to assembly code in Computer Systems.  Assembly code is a language which provides human readable versions of machine level instructions.  We will be looking in more detail at how the CPU executes instructions and writing some assembly code later in the module.  What you will find is that you can translate from C to assembly fairly easily.
+\end{framed}
+
+We can extend our compile pipeline to the following:
+\[
+\text{C code} \Rightarrow \text{Assembly code} \Rightarrow \text{Object code} \Rightarrow \text{executable}
+\]
+
+Let us go through this extra step using our Hello World example.  Just as a refresh, the code for this is given below:
+
+\begin{lstlisting}{caption=Hello World Application Code (for Reference)}
+// stdio contains standard C input-output functions
+#include <stdio.h>
+
+// Our main function.  
+// argc is the number of command line arguments
+// argv are the command line arguments
+// We will look at these later
+int main(int argc, char **argv)
+{
+    // Print hello world to the screen
+    printf("Hello world!\n");
+    // Return value from program
+    return 0;
+}
+\end{lstlisting}
+
+To output assembly code during our compilation step we use the \texttt{/Fa} compiler flag:
+
+\begin{lstlisting}[style=DOS, caption=Generating Assembly Code]
+cl /c /Fa hello.c
+\end{lstlisting}
+
+The output from this step is as follows:
+
+\begin{lstlisting}[style=DOS, caption=Output from Assembly Generation]
+cl /c /Fa hello.c
+Microsoft (R) C/C++ Optimizing Compiler Version 18.00.30501 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+hello.c
+\end{lstlisting}
+
+Not really much difference for output than during our standard compile.  However, you will now find that you have a \texttt{hello.asm} file produced.  It should look similar to the following:
+
+\begin{lstlisting}[language={[x86masm]Assembler}, caption=Assembly Code for Hello World Application]
+; Listing generated by Microsoft (R) Optimizing Compiler Version 18.00.30501.0 
+
+	TITLE	D:\programming-fundamentals\code\unit-01\hello.c
+	.686P
+	.XMM
+	include listing.inc
+	.model	flat
+
+INCLUDELIB LIBCMT
+INCLUDELIB OLDNAMES
+
+_DATA	SEGMENT
+$SG3048	DB	'Hello world!', 0aH, 00H
+_DATA	ENDS
+PUBLIC	_main
+EXTRN	_printf:PROC
+; Function compile flags: /Odtp
+_TEXT	SEGMENT
+_argc$ = 8						; size = 4
+_argv$ = 12						; size = 4
+_main	PROC
+; File d:\programming-fundamentals\code\unit-01\hello.c
+; Line 9
+	push	ebp
+	mov	ebp, esp
+; Line 11
+	push	OFFSET $SG3048
+	call	_printf
+	add	esp, 4
+; Line 13
+	xor	eax, eax
+; Line 14
+	pop	ebp
+	ret	0
+_main	ENDP
+_TEXT	ENDS
+END
+\end{lstlisting}
+
+OK, this might seem daunting, but we can actually break this down a little.
+\begin{itemize}
+\item Line 13 stores the Hello World message and allocates it an identity (the \texttt{\$SG3048} part).  It has the characters of the message, followed by the hex values \texttt{0a} (10) and \texttt{00} (as you might guess 0).  The \texttt{h} after these values denote them as hex.  If you look up an ASCII table, you will see that 10 is a line feed (the new line character) and 0 is null (the null terminator).  We discussed these ideas back in the strings example.
+\item Line 21 is the start of the main procedure.
+\item Line 27 and 28 shows how the call to \texttt{printf} is made.  The value stored in \texttt{\$SG3048} is pushed onto the stack and \texttt{printf} is called.  The stack is where we store arguments to pass to functions.  We will revisit the stack and scope later in the module
+\end{itemize}
+
+The lines starting with \texttt{;} are comments.  Some of these comments tell you where these lines of code relate to our original C.
+
+To compile our assembly code we use the \texttt{ml} program:
+
+\begin{lstlisting}[style=DOS, caption=Compiling Assembly Code]
+ml /c <filename.asm>
+\end{lstlisting}
+
+If we compile our \texttt{hello.asm} code we get the following output:
+
+\begin{lstlisting}[style=DOS, caption=Output from Assembly Code Compilation]
+ml /c hello.asm
+Microsoft (R) Macro Assembler Version 12.00.30501.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+ Assembling: hello.asm
+\end{lstlisting}
+
+You can now link the produced \texttt{hello.obj} as before.
+
+\section{Exercises}
+
+These exercises are meant to reaffirm your understanding the concepts covered in this unit, and you will find that you will become a much better program via practice and by solving these problems.
+
+\begin{enumerate}
+\item Write an application that outputs your name surrounded by stars.  Algorithm~\ref{alg:name-stars} provides the outline.  An example output is:
+\begin{lstlisting}[style=DOS]
+******************
+* Kevin Chalmers *
+******************
+\end{lstlisting}
+\item Write an application that prompts for a student name and then asks for a grades.  The application for keep asking for grades until -1 is entered.  Once -1 is entered, an average grade should be given.  The application should ask for student names until 0 is entered as a student name.
+\item Write an application that outputs a Christmas tree of a given height.  For example, given 5 as an input:
+\begin{lstlisting}[style=DOS]
+    *
+   ***
+  *****
+ *******
+*********
+    *
+\end{lstlisting}
+\item Write an application that presents a menu asking if the user wants a Christmas tree or a triangle.  The application will then ask for a size and print the requested object.  The application should keep asking the user what they want to print until asked to exit.  The Christmas tree and triangle code should be written as functions.
+\item Generate assembly for some of the other applications and examine the output.  Try and compare what is going on in the assembly code and the C code.  We will be looking at this in more detail in two units time.
+\end{enumerate}
+
+\begin{algorithm}
+\centering
+\begin{algorithmic}[1]
+\Procedure{main}{}
+\State read name ($name$)
+\State $length \gets$ \Call{strlen}{$name$} + 4
+\For{$i \gets 0 \text{ to } length$}
+\State print \texttt{*}
+\EndFor
+\State print new line
+\State print \texttt{*}
+\State print space
+\State print name
+\State print space
+\State print \texttt{*}
+\State print new line
+\For{$i \gets 0 \text{ to } length$}
+\State print \texttt{*}
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\caption{Printing Your Name Surrounded by Stars}
+\label{alg:name-stars}
+\end{algorithm}
